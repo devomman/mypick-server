@@ -494,6 +494,9 @@ git clone https://github.com/devomman/mypick-partner.git mypick-partner
 
 # Socket Service (if separate repo, adjust accordingly)
 git clone https://github.com/devomman/mypick-socket.git mypick-socket
+
+# AI Server (if separate repo, adjust accordingly)
+git clone https://github.com/devomman/mypick-ai.git mypick-ai
 ```
 
 
