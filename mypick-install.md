@@ -897,7 +897,8 @@ pnpm pm2:start
 # Update process:
 # git pull
 # git stash - if any changes
-# pnpm build
+# pnpm build (Or)
+# pnpm build:com
 # pm2 restart 0
 # pm2 restart 0 --update-env (If any env update)
 ```
