@@ -920,7 +920,8 @@ pm2 start pnpm --name "mypick-web" -- start -p 3001
 # Update process:
 # git pull
 # git stash - if any changes
-# pnpm build
+# pnpm build (Or)
+# pnpm build:com
 # pm2 restart 1
 # pm2 restart 1 --update-env (If any env update)
 # pm2 start pnpm --name "mypick-web" -- start -p 3001
@@ -943,7 +944,8 @@ pm2 start pnpm --name "mypick-admin" -- start -p 3002
 # Update process:
 # git pull
 # git stash - if any changes
-# pnpm run build
+# pnpm run build (Or)
+# pnpm build:com
 # pm2 status
 # pm2 delete 5 - if needed
 # pm2 restart 6
@@ -967,7 +969,8 @@ pm2 start pnpm --name "mypick-partner" -- start -p 3003
 # Update process:
 # git pull
 # git stash - if any changes
-# pnpm run build
+# pnpm run build (Or)
+# pnpm build:com
 # pm2 status
 # pm2 delete 5 - if needed
 # pm2 restart 6
