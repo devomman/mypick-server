@@ -187,335 +187,6 @@ map $http_upgrade $connection_upgrade {
 
 ```
 
-
----
-
-## 🧩 NGINX Added Extra Settings Guide
-
-Use this section when setting up or updating production NGINX for MyPick.  
-These are the extra timeout, buffer, header, and WebSocket settings added after comparing production with demo.
-
-### A. Global NGINX Extras
-
-File:
-
-```bash
-/etc/nginx/nginx.conf
-```
-
-Add inside the `http {}` block:
-
-```nginx
-map $http_upgrade $connection_upgrade {
-    default upgrade;
-    ''      close;
-}
-
-large_client_header_buffers 8 32k;
-```
-
-Recommended position:
-
-```nginx
-http {
-    map $http_upgrade $connection_upgrade {
-        default upgrade;
-        ''      close;
-    }
-
-    include /etc/nginx/mime.types;
-    default_type application/octet-stream;
-
-    ...
-    client_max_body_size 500M;
-    large_client_header_buffers 8 32k;
-}
-```
-
-Command to add WebSocket map after `http {`:
-
-```bash
-sudo sed -i '/http {/a\    map $http_upgrade $connection_upgrade {\n        default upgrade;\n        '\'''\''      close;\n    }\n' /etc/nginx/nginx.conf
-```
-
-Command to add large client header buffers after `client_max_body_size 500M;`:
-
-```bash
-sudo sed -i '/client_max_body_size 500M;/a\    large_client_header_buffers 8 32k;' /etc/nginx/nginx.conf
-```
-
----
-
-### B. mypick-web Added Extra
-
-File:
-
-```bash
-/etc/nginx/sites-available/mypick-web
-```
-
-Add inside `location /` after:
-
-```nginx
-proxy_pass http://localhost:3001;
-```
-
-Add:
-
-```nginx
-# Added Extra
-proxy_connect_timeout 75s;
-proxy_send_timeout 600s;
-proxy_read_timeout 600s;
-client_max_body_size 20m;
-proxy_buffer_size 512k;
-proxy_buffers 16 512k;
-proxy_busy_buffers_size 1024k;
-```
-
-Command:
-
-```bash
-sudo sed -i '/proxy_pass http:\/\/localhost:3001;/a\        # Added Extra\n        proxy_connect_timeout 75s;\n        proxy_send_timeout 600s;\n        proxy_read_timeout 600s;\n        client_max_body_size 20m;\n        proxy_buffer_size 512k;\n        proxy_buffers 16 512k;\n        proxy_busy_buffers_size 1024k;' /etc/nginx/sites-available/mypick-web
-```
-
----
-
-### C. mypick-api Added Extra
-
-File:
-
-```bash
-/etc/nginx/sites-available/mypick-api
-```
-
-Add inside `location /` after:
-
-```nginx
-proxy_cache_bypass $http_upgrade;
-```
-
-Add:
-
-```nginx
-# Added Extra
-proxy_connect_timeout 75s;
-proxy_send_timeout 300s;
-proxy_read_timeout 300s;
-client_max_body_size 25m;
-proxy_buffer_size 256k;
-proxy_buffers 8 256k;
-proxy_busy_buffers_size 256k;
-```
-
-Command:
-
-```bash
-sudo sed -i '/proxy_cache_bypass \$http_upgrade;/a\        # Added Extra\n        proxy_connect_timeout 75s;\n        proxy_send_timeout 300s;\n        proxy_read_timeout 300s;\n        client_max_body_size 25m;\n        proxy_buffer_size 256k;\n        proxy_buffers 8 256k;\n        proxy_busy_buffers_size 256k;' /etc/nginx/sites-available/mypick-api
-```
-
----
-
-### D. mypick-admin Added Extra
-
-File:
-
-```bash
-/etc/nginx/sites-available/mypick-admin
-```
-
-Add inside `location /` after:
-
-```nginx
-proxy_cache_bypass $http_upgrade;
-```
-
-Add:
-
-```nginx
-# Added Extra
-proxy_buffer_size 256k;
-proxy_buffers 8 256k;
-proxy_busy_buffers_size 256k;
-```
-
-Command:
-
-```bash
-sudo sed -i '/proxy_cache_bypass \$http_upgrade;/a\        # Added Extra\n        proxy_buffer_size 256k;\n        proxy_buffers 8 256k;\n        proxy_busy_buffers_size 256k;' /etc/nginx/sites-available/mypick-admin
-```
-
----
-
-### E. mypick-ai Added Extra
-
-File:
-
-```bash
-/etc/nginx/sites-available/mypick-ai
-```
-
-Recommended `location /`:
-
-```nginx
-location / {
-    proxy_pass http://127.0.0.1:8000;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-
-    # Added Extra
-    proxy_read_timeout 300;
-    proxy_send_timeout 300;
-    proxy_connect_timeout 60;
-}
-```
-
-Command to change `localhost` to `127.0.0.1`:
-
-```bash
-sudo sed -i 's/proxy_pass http:\/\/localhost:8000;/proxy_pass http:\/\/127.0.0.1:8000;/' /etc/nginx/sites-available/mypick-ai
-```
-
-Command to add timeout settings after `proxy_cache_bypass $http_upgrade;`:
-
-```bash
-sudo sed -i '/proxy_cache_bypass \$http_upgrade;/a\        # Added Extra\n        proxy_read_timeout 300;\n        proxy_send_timeout 300;\n        proxy_connect_timeout 60;' /etc/nginx/sites-available/mypick-ai
-```
-
----
-
-### F. mypick-socket Added Extra
-
-File:
-
-```bash
-/etc/nginx/sites-available/mypick-socket
-```
-
-Because the global map was added:
-
-```nginx
-map $http_upgrade $connection_upgrade {
-    default upgrade;
-    ''      close;
-}
-```
-
-Use this header in socket locations:
-
-```nginx
-proxy_set_header Connection $connection_upgrade;
-```
-
-Replace:
-
-```nginx
-proxy_set_header Connection "upgrade";
-```
-
-Command:
-
-```bash
-sudo sed -i 's/proxy_set_header Connection "upgrade";/proxy_set_header Connection $connection_upgrade;/' /etc/nginx/sites-available/mypick-socket
-```
-
-Keep existing Socket.IO timeout settings:
-
-```nginx
-proxy_read_timeout 86400;
-proxy_send_timeout 86400;
-proxy_connect_timeout 60;
-```
-
-Verify socket settings:
-
-```bash
-grep -n "Connection\|proxy_read_timeout\|proxy_send_timeout\|proxy_connect_timeout" /etc/nginx/sites-available/mypick-socket
-```
-
-Expected Connection lines:
-
-```nginx
-proxy_set_header Connection $connection_upgrade;
-proxy_set_header Connection $connection_upgrade;
-```
-
----
-
-### G. mypick-partner
-
-No extra change required.
-
-Current partner config already matches demo:
-
-```nginx
-proxy_read_timeout 300;
-proxy_connect_timeout 300;
-proxy_send_timeout 300;
-```
-
----
-
-### H. Final Test and Reload
-
-Always test before reload:
-
-```bash
-sudo nginx -t
-```
-
-Reload only if test is successful:
-
-```bash
-sudo systemctl reload nginx
-```
-
-One-line command:
-
-```bash
-sudo nginx -t && sudo systemctl reload nginx
-```
-
----
-
-### I. Useful Verification Commands
-
-Check global map:
-
-```bash
-grep -n "connection_upgrade" /etc/nginx/nginx.conf
-```
-
-Check global large header buffer:
-
-```bash
-grep -n "large_client_header_buffers" /etc/nginx/nginx.conf
-```
-
-Check all active buffer settings:
-
-```bash
-sudo nginx -T | grep -E "proxy_buffer_size|proxy_buffers|proxy_busy_buffers_size|large_client_header_buffers"
-```
-
-Check socket connection headers:
-
-```bash
-grep -n "Connection" /etc/nginx/sites-available/mypick-socket
-```
-
-Dump full active NGINX config:
-
-```bash
-sudo nginx -T
-```
-
----
-
-
 ## 🗄️ MongoDB Installation
 
 ### 11. Check Ubuntu Version
@@ -1135,6 +806,250 @@ server {
 }
 ```
 
+
+#### Added Extra MyPick Nginx Changes + Commands (June 2026) START
+
+## 1. Global Nginx
+
+File:
+
+```bash
+/etc/nginx/nginx.conf
+```
+
+### Add Header Buffers
+
+```nginx
+large_client_header_buffers 8 32k;
+```
+
+Command:
+
+```bash
+sudo sed -i '/client_max_body_size 500M;/a\    large_client_header_buffers 8 32k;' /etc/nginx/nginx.conf
+```
+
+---
+
+### Add WebSocket Upgrade Map
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+```
+
+Command:
+
+```bash
+sudo sed -i '/http {/a\    map $http_upgrade $connection_upgrade {\n        default upgrade;\n        '\'''\''      close;\n    }\n' /etc/nginx/nginx.conf
+```
+
+---
+
+# 2. mypick-web
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-web
+```
+
+Add inside `location /`:
+
+```nginx
+# Added Extra
+proxy_connect_timeout 75s;
+proxy_send_timeout 600s;
+proxy_read_timeout 600s;
+client_max_body_size 20m;
+proxy_buffer_size 512k;
+proxy_buffers 16 512k;
+proxy_busy_buffers_size 1024k;
+```
+
+---
+
+# 3. mypick-api
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-api
+```
+
+Add inside `location /`:
+
+```nginx
+# Added Extra
+proxy_connect_timeout 75s;
+proxy_send_timeout 300s;
+proxy_read_timeout 300s;
+client_max_body_size 25m;
+proxy_buffer_size 256k;
+proxy_buffers 8 256k;
+proxy_busy_buffers_size 256k;
+```
+
+---
+
+# 4. mypick-admin
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-admin
+```
+
+Add inside `location /`:
+
+```nginx
+# Added Extra
+proxy_buffer_size 256k;
+proxy_buffers 8 256k;
+proxy_busy_buffers_size 256k;
+```
+
+---
+
+# 5. mypick-ai
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-ai
+```
+
+Add inside `location /`:
+
+```nginx
+# Added Extra
+proxy_read_timeout 300;
+proxy_send_timeout 300;
+proxy_connect_timeout 60;
+```
+
+Optional:
+
+```nginx
+proxy_pass http://127.0.0.1:8000;
+```
+
+instead of:
+
+```nginx
+proxy_pass http://localhost:8000;
+```
+
+---
+
+# 6. mypick-socket
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-socket
+```
+
+Replace:
+
+```nginx
+proxy_set_header Connection "upgrade";
+```
+
+with:
+
+```nginx
+proxy_set_header Connection $connection_upgrade;
+```
+
+Command:
+
+```bash
+sudo sed -i 's/proxy_set_header Connection "upgrade";/proxy_set_header Connection $connection_upgrade;/' /etc/nginx/sites-available/mypick-socket
+```
+
+Keep:
+
+```nginx
+proxy_read_timeout 86400;
+proxy_send_timeout 86400;
+proxy_connect_timeout 60;
+```
+
+---
+
+# 7. mypick-partner
+
+No changes required.
+
+Already matches demo configuration.
+
+---
+
+# Verify Configuration
+
+```bash
+sudo nginx -t
+```
+
+Expected:
+
+```text
+nginx: configuration file /etc/nginx/nginx.conf test is successful
+```
+
+---
+
+# Reload Nginx
+
+```bash
+sudo systemctl reload nginx
+```
+
+or
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+---
+
+# Useful Verification Commands
+
+### Check WebSocket Map
+
+```bash
+grep -n "connection_upgrade" /etc/nginx/nginx.conf
+```
+
+### Check Socket Headers
+
+```bash
+grep -n "Connection" /etc/nginx/sites-available/mypick-socket
+```
+
+### Dump Active Nginx Config
+
+```bash
+sudo nginx -T
+```
+
+### Check Buffer Settings
+
+```bash
+sudo nginx -T | grep -E "proxy_buffer_size|proxy_buffers|proxy_busy_buffers_size|large_client_header_buffers"
+```
+#### Added Extra MyPick Nginx Changes + Commands (June 2026) END
+
+
+
+
+
+
+
+
 ### 17. Enable Sites
 ```bash
 # Create symbolic links
@@ -1368,4 +1283,10 @@ pm2 restart 5 --update-env
 # git stash - if any changes
 # pm2 restart 5
 # pm2 restart 5 --update-env (If any env update)
+
+
+
+
+
+
 ```
