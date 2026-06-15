@@ -1,0 +1,75 @@
+server {
+    server_name socket.mypick.com www.socket.mypick.com;
+
+    # Socket.IO endpoint
+    location /socket.io/ {
+        proxy_pass http://localhost:5088;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeout settings for WebSocket
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+        proxy_connect_timeout 60;
+    }
+
+    location / {
+        proxy_pass http://localhost:5088;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+
+        # Timeout settings for Socket
+        proxy_read_timeout 86400;
+        proxy_send_timeout 86400;
+
+    }
+
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml font/truetype font/opentype application/vnd.ms-fontobject image/svg+xml;
+
+    listen 443 ssl; # managed by Certbot
+    listen [::]:443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/mypick.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/mypick.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+
+
+
+}
+server {
+    if ($host = www.socket.mypick.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    if ($host = socket.mypick.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80;
+    listen [::]:80;
+    server_name socket.mypick.com www.socket.mypick.com;
+    return 404; # managed by Certbot
+
+
+
+
+}
