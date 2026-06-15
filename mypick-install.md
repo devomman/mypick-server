@@ -187,6 +187,335 @@ map $http_upgrade $connection_upgrade {
 
 ```
 
+
+---
+
+## 🧩 NGINX Added Extra Settings Guide
+
+Use this section when setting up or updating production NGINX for MyPick.  
+These are the extra timeout, buffer, header, and WebSocket settings added after comparing production with demo.
+
+### A. Global NGINX Extras
+
+File:
+
+```bash
+/etc/nginx/nginx.conf
+```
+
+Add inside the `http {}` block:
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+large_client_header_buffers 8 32k;
+```
+
+Recommended position:
+
+```nginx
+http {
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        ''      close;
+    }
+
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    ...
+    client_max_body_size 500M;
+    large_client_header_buffers 8 32k;
+}
+```
+
+Command to add WebSocket map after `http {`:
+
+```bash
+sudo sed -i '/http {/a\    map $http_upgrade $connection_upgrade {\n        default upgrade;\n        '\'''\''      close;\n    }\n' /etc/nginx/nginx.conf
+```
+
+Command to add large client header buffers after `client_max_body_size 500M;`:
+
+```bash
+sudo sed -i '/client_max_body_size 500M;/a\    large_client_header_buffers 8 32k;' /etc/nginx/nginx.conf
+```
+
+---
+
+### B. mypick-web Added Extra
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-web
+```
+
+Add inside `location /` after:
+
+```nginx
+proxy_pass http://localhost:3001;
+```
+
+Add:
+
+```nginx
+# Added Extra
+proxy_connect_timeout 75s;
+proxy_send_timeout 600s;
+proxy_read_timeout 600s;
+client_max_body_size 20m;
+proxy_buffer_size 512k;
+proxy_buffers 16 512k;
+proxy_busy_buffers_size 1024k;
+```
+
+Command:
+
+```bash
+sudo sed -i '/proxy_pass http:\/\/localhost:3001;/a\        # Added Extra\n        proxy_connect_timeout 75s;\n        proxy_send_timeout 600s;\n        proxy_read_timeout 600s;\n        client_max_body_size 20m;\n        proxy_buffer_size 512k;\n        proxy_buffers 16 512k;\n        proxy_busy_buffers_size 1024k;' /etc/nginx/sites-available/mypick-web
+```
+
+---
+
+### C. mypick-api Added Extra
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-api
+```
+
+Add inside `location /` after:
+
+```nginx
+proxy_cache_bypass $http_upgrade;
+```
+
+Add:
+
+```nginx
+# Added Extra
+proxy_connect_timeout 75s;
+proxy_send_timeout 300s;
+proxy_read_timeout 300s;
+client_max_body_size 25m;
+proxy_buffer_size 256k;
+proxy_buffers 8 256k;
+proxy_busy_buffers_size 256k;
+```
+
+Command:
+
+```bash
+sudo sed -i '/proxy_cache_bypass \$http_upgrade;/a\        # Added Extra\n        proxy_connect_timeout 75s;\n        proxy_send_timeout 300s;\n        proxy_read_timeout 300s;\n        client_max_body_size 25m;\n        proxy_buffer_size 256k;\n        proxy_buffers 8 256k;\n        proxy_busy_buffers_size 256k;' /etc/nginx/sites-available/mypick-api
+```
+
+---
+
+### D. mypick-admin Added Extra
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-admin
+```
+
+Add inside `location /` after:
+
+```nginx
+proxy_cache_bypass $http_upgrade;
+```
+
+Add:
+
+```nginx
+# Added Extra
+proxy_buffer_size 256k;
+proxy_buffers 8 256k;
+proxy_busy_buffers_size 256k;
+```
+
+Command:
+
+```bash
+sudo sed -i '/proxy_cache_bypass \$http_upgrade;/a\        # Added Extra\n        proxy_buffer_size 256k;\n        proxy_buffers 8 256k;\n        proxy_busy_buffers_size 256k;' /etc/nginx/sites-available/mypick-admin
+```
+
+---
+
+### E. mypick-ai Added Extra
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-ai
+```
+
+Recommended `location /`:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Added Extra
+    proxy_read_timeout 300;
+    proxy_send_timeout 300;
+    proxy_connect_timeout 60;
+}
+```
+
+Command to change `localhost` to `127.0.0.1`:
+
+```bash
+sudo sed -i 's/proxy_pass http:\/\/localhost:8000;/proxy_pass http:\/\/127.0.0.1:8000;/' /etc/nginx/sites-available/mypick-ai
+```
+
+Command to add timeout settings after `proxy_cache_bypass $http_upgrade;`:
+
+```bash
+sudo sed -i '/proxy_cache_bypass \$http_upgrade;/a\        # Added Extra\n        proxy_read_timeout 300;\n        proxy_send_timeout 300;\n        proxy_connect_timeout 60;' /etc/nginx/sites-available/mypick-ai
+```
+
+---
+
+### F. mypick-socket Added Extra
+
+File:
+
+```bash
+/etc/nginx/sites-available/mypick-socket
+```
+
+Because the global map was added:
+
+```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+```
+
+Use this header in socket locations:
+
+```nginx
+proxy_set_header Connection $connection_upgrade;
+```
+
+Replace:
+
+```nginx
+proxy_set_header Connection "upgrade";
+```
+
+Command:
+
+```bash
+sudo sed -i 's/proxy_set_header Connection "upgrade";/proxy_set_header Connection $connection_upgrade;/' /etc/nginx/sites-available/mypick-socket
+```
+
+Keep existing Socket.IO timeout settings:
+
+```nginx
+proxy_read_timeout 86400;
+proxy_send_timeout 86400;
+proxy_connect_timeout 60;
+```
+
+Verify socket settings:
+
+```bash
+grep -n "Connection\|proxy_read_timeout\|proxy_send_timeout\|proxy_connect_timeout" /etc/nginx/sites-available/mypick-socket
+```
+
+Expected Connection lines:
+
+```nginx
+proxy_set_header Connection $connection_upgrade;
+proxy_set_header Connection $connection_upgrade;
+```
+
+---
+
+### G. mypick-partner
+
+No extra change required.
+
+Current partner config already matches demo:
+
+```nginx
+proxy_read_timeout 300;
+proxy_connect_timeout 300;
+proxy_send_timeout 300;
+```
+
+---
+
+### H. Final Test and Reload
+
+Always test before reload:
+
+```bash
+sudo nginx -t
+```
+
+Reload only if test is successful:
+
+```bash
+sudo systemctl reload nginx
+```
+
+One-line command:
+
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+---
+
+### I. Useful Verification Commands
+
+Check global map:
+
+```bash
+grep -n "connection_upgrade" /etc/nginx/nginx.conf
+```
+
+Check global large header buffer:
+
+```bash
+grep -n "large_client_header_buffers" /etc/nginx/nginx.conf
+```
+
+Check all active buffer settings:
+
+```bash
+sudo nginx -T | grep -E "proxy_buffer_size|proxy_buffers|proxy_busy_buffers_size|large_client_header_buffers"
+```
+
+Check socket connection headers:
+
+```bash
+grep -n "Connection" /etc/nginx/sites-available/mypick-socket
+```
+
+Dump full active NGINX config:
+
+```bash
+sudo nginx -T
+```
+
+---
+
+
 ## 🗄️ MongoDB Installation
 
 ### 11. Check Ubuntu Version
@@ -1039,240 +1368,4 @@ pm2 restart 5 --update-env
 # git stash - if any changes
 # pm2 restart 5
 # pm2 restart 5 --update-env (If any env update)
-```
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-### MongoDB Backup, Drop & Restore
-
-```bash
-# MongoDB Backup from Remote server - All Database
-mongodump -h 52.2.133.20 --port 27017 -u "cart24admin" -p "STRONG_PASSWORD_HERE" --authenticationDatabase admin --out ~/mongo-backups/all-dev-$(date +%F)
-# MongoDB Restore from Local Backups - All Database
-mongorestore -u "root" -p "cart24@Pass" --authenticationDatabase admin ~/mongo-backups/all-dev-2026-01-03
-
-
-# MongoDB Backup from Remote server - Only `cart24-db` Database
-mongodump -h 52.2.133.20 --port 27017 -u "cart24admin" -p "STRONG_PASSWORD_HERE" --authenticationDatabase admin --db cart24-db --out ~/mongo-backups/all-dev-$(date +%F)
-# MongoDB Restore from Local Backups - Only `cart24-db` Database
-mongorestore -u "root" -p "cart24@Pass" --authenticationDatabase admin --db cart24-db ~/mongo-backups/all-dev-2026-01-01/cart24-db
-
-
-# MongoDB Backup from Local server - All Database
-mongodump -u "root" -p "cart24%40Pass" --authenticationDatabase admin --out ~/mongo-backups/all-dev-$(date +%F)
-# MongoDB Restore from Local Backups - All Database
-mongorestore -u "root" -p "cart24@Pass" --authenticationDatabase admin ~/mongo-backups/all-dev-2026-01-01
-
-
-# MongoDB Backup from Local server - Only `cart24-db` Database
-mongodump -u "cart24admin" -p "STRONG_PASSWORD_HERE" --authenticationDatabase admin --db cart24-db --out ~/mongo-backups/all-dev-$(date +%F)
-
-# MongoDB Restore from Local Backups - Only `cart24-db` Database
-mongorestore -u "root" -p "cart24@Pass" --authenticationDatabase admin --db cart24-db ~/mongo-backups/all-dev-2026-01-01/cart24-db
-
-
-# Restore a single collection
-mongorestore --db cart24-db --collection orders ~/mongo-backups/cart24-2026-01-01/cart24-db/orders.bson
-
-```
-
-
-
-### 23. Verify Deployment
-```bash
-# Check all services
-pm2 status
-systemctl status nginx
-systemctl status mongod
-systemctl status redis-server
-
-# Check logs if needed
-pm2 logs
-```
-
-## 🔄 Common Maintenance Commands
-
-```bash
-# Merge `develop-feature` into `cart24-live-server`
-
-# Switch to live server branch
-git checkout cart24-live-server
-
-# Update local branch
-git pull origin cart24-live-server
-
-# Check working tree status (recommended)
-git status
-
-# Merge feature branch
-git merge develop-feature
-
-# Push changes to remote
-git push origin cart24-live-server
-
-# view conflicted files
-git status
-# resolve conflicts manually
-git add .
-git commit
-git push origin cart24-live-server
-
-# Verify Merge (Optional)
-git log --oneline --graph --decorate -5
-
-
-# Restart all services
-sudo systemctl restart nginx
-sudo systemctl restart mongod
-sudo systemctl restart redis-server
-
-# Check PM2 processes
-pm2 list
-pm2 monit
-
-# Check system resources
-htop
-free -h
-df -h
-```
-
-
-
-## 📝 Notes
-
-1. **Security:** Configure UFW firewall after setup
-2. **Backups:** Regular backups of MongoDB and application data
-3. **Monitoring:** Set up monitoring for all services
-4. **Updates:** Regular system updates and security patches
-5. **SSL Renewal:** Certbot SSL certificates auto-renew every 90 days
-
-## 🆘 Troubleshooting
-
-```bash
-# Check NGINX configuration
-sudo nginx -t
-
-# Check service logs
-sudo journalctl -u nginx -f
-sudo journalctl -u mongod -f
-sudo journalctl -u redis-server -f
-
-# Check application logs
-pm2 logs [app-name]
-
-# Restart everything
-sudo reboot
-
-
-# 🧹 COMPLETE NODE & PM2 CLEANUP (Ubuntu)
-
-## 1️⃣ Stop & remove all PM2 processes (if any)
-
-```bash
-pm2 kill 2>/dev/null
-
-sudo reboot
-
-# Check Status
-sudo systemctl status nginx
-sudo systemctl status mongod
-sudo systemctl status redis-server
-
-# If not enabled
-sudo systemctl restart nginx
-sudo systemctl restart mongod
-sudo systemctl restart redis-server
-
-```
-
-
-
-## 2️⃣ Uninstall PM2 (all methods)
-
-```bash
-sudo npm uninstall -g pm2 2>/dev/null
-sudo rm -f /usr/local/bin/pm2
-sudo rm -rf /usr/local/lib/node_modules/pm2
-```
-
-
-
-## 3️⃣ Remove Node installed via APT
-
-```bash
-sudo apt remove -y nodejs npm
-sudo apt purge -y nodejs npm
-sudo apt autoremove -y
-```
-
-
-
-## 4️⃣ Remove Node installed via `n`
-
-```bash
-sudo rm -f /usr/local/bin/node
-sudo rm -f /usr/local/bin/npm
-sudo rm -f /usr/local/bin/npx
-sudo rm -rf /usr/local/lib/node_modules
-```
-
-
-
-## 5️⃣ Remove NVM completely (if exists)
-
-```bash
-sudo rm -rf ~/.nvm
-sed -i '/nvm/d' ~/.bashrc ~/.profile ~/.bash_profile 2>/dev/null
-
-
-# Reload shell:
-
-```bash
-source ~/.bashrc
-```
-
-
-
-## 6️⃣ Remove leftover Node cache & config
-
-```bash
-sudo rm -rf ~/.npm
-sudo rm -rf ~/.node-gyp
-sudo rm -rf ~/.cache/node*
-```
-
-
-
-## 7️⃣ Verify EVERYTHING is gone
-
-Run these **one by one** — all should fail:
-
-```bash
-node -v
-npm -v
-pm2 -v
-which node
-which npm
-
-# Expected:command not found
 ```
