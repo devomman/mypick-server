@@ -10,6 +10,7 @@
 | partner.mypick.com | Partner Portal | 3003 |
 | socket.mypick.com  | Socket Service | 5088 |
 | ai.mypick.com      | AI Service     | 8000 |
+| admin.pickos.com   | PickOS Admin   | 3004 |
 
 
 ## 🚀 Initial System Setup
@@ -497,6 +498,9 @@ git clone https://github.com/devomman/mypick-socket.git mypick-socket
 
 # AI Server (if separate repo, adjust accordingly)
 git clone https://github.com/devomman/mypick-ai.git mypick-ai
+
+# PickOS Admin Panel
+git clone https://github.com/devomman/pickos-admin.git pickos-admin
 ```
 
 
@@ -636,6 +640,37 @@ server {
 
     location / {
         proxy_pass http://localhost:3002;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml text/javascript application/json application/javascript application/xml+rss application/rss+xml font/truetype font/opentype application/vnd.ms-fontobject image/svg+xml;
+}
+```
+
+**pickos-admin:**
+```bash
+sudo nano /etc/nginx/sites-available/pickos-admin
+```
+```conf
+server {
+    listen 80;
+    listen [::]:80;
+    server_name admin.pickos.com www.admin.pickos.com;
+
+    location / {
+        proxy_pass http://localhost:3004;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -913,7 +948,26 @@ proxy_busy_buffers_size 256k;
 
 ---
 
-# 5. mypick-ai
+# 5. pickos-admin
+
+File:
+
+```bash
+/etc/nginx/sites-available/pickos-admin
+```
+
+Add inside `location /`:
+
+```nginx
+# Added Extra
+proxy_buffer_size 256k;
+proxy_buffers 8 256k;
+proxy_busy_buffers_size 256k;
+```
+
+---
+
+# 6. mypick-ai
 
 File:
 
@@ -944,7 +998,7 @@ proxy_pass http://localhost:8000;
 
 ---
 
-# 6. mypick-socket
+# 7. mypick-socket
 
 File:
 
@@ -980,7 +1034,7 @@ proxy_connect_timeout 60;
 
 ---
 
-# 7. mypick-partner
+# 8. mypick-partner
 
 No changes required.
 
@@ -1055,6 +1109,7 @@ sudo nginx -T | grep -E "proxy_buffer_size|proxy_buffers|proxy_busy_buffers_size
 # Create symbolic links
 sudo ln -s /etc/nginx/sites-available/mypick-web /etc/nginx/sites-enabled/mypick-web
 sudo ln -s /etc/nginx/sites-available/mypick-admin /etc/nginx/sites-enabled/mypick-admin
+sudo ln -s /etc/nginx/sites-available/pickos-admin /etc/nginx/sites-enabled/pickos-admin
 sudo ln -s /etc/nginx/sites-available/mypick-partner /etc/nginx/sites-enabled/mypick-partner
 sudo ln -s /etc/nginx/sites-available/mypick-api /etc/nginx/sites-enabled/mypick-api
 sudo ln -s /etc/nginx/sites-available/mypick-socket /etc/nginx/sites-enabled/mypick-socket
@@ -1145,6 +1200,13 @@ pnpm pm2:start
 # pnpm build:com
 # pm2 restart 0
 # pm2 restart 0 --update-env (If any env update)
+
+# Update process Shortcut:
+git fetch -a
+git reset --hard origin/live
+pnpm i
+pnpm build:com
+pm2 restart 0 --update-env
 ```
 
 **mypick-web:**
@@ -1169,6 +1231,13 @@ pm2 start pnpm --name "mypick-web" -- start -p 3001
 # pm2 restart 1
 # pm2 restart 1 --update-env (If any env update)
 # pm2 start pnpm --name "mypick-web" -- start -p 3001
+
+# Update process Shortcut:
+git fetch -a
+git reset --hard origin/live
+pnpm i
+pnpm build:com
+pm2 restart 1 --update-env
 ```
 
 **mypick-admin:**
@@ -1191,10 +1260,17 @@ pm2 start pnpm --name "mypick-admin" -- start -p 3002
 # pnpm run build (Or)
 # pnpm build:com
 # pm2 status
-# pm2 delete 5 - if needed
-# pm2 restart 6
+# pm2 delete 2 - if needed
+# pm2 restart 2
 # pnpm run pm2:start
-# pm2 restart 6 --update-env (If any env update)
+# pm2 restart 2 --update-env (If any env update)
+
+# Update process Shortcut:
+git fetch -a
+git reset --hard origin/live
+pnpm i
+pnpm build:com
+pm2 restart 2 --update-env
 ```
 
 **mypick-partner:**
@@ -1216,10 +1292,17 @@ pm2 start pnpm --name "mypick-partner" -- start -p 3003
 # pnpm run build (Or)
 # pnpm build:com
 # pm2 status
-# pm2 delete 5 - if needed
-# pm2 restart 6
+# pm2 delete 3 - if needed
+# pm2 restart 3
 # pm2 start pnpm --name "mypick-partner" -- start -p 3003
-# pm2 restart 6 --update-env (If any env update)
+# pm2 restart 3 --update-env (If any env update)
+
+# Update process Shortcut:
+git fetch -a
+git reset --hard origin/live
+pnpm i
+pnpm build:com
+pm2 restart 3 --update-env
 ```
 
 **mypick-socket:**
@@ -1238,8 +1321,15 @@ pm2 start pnpm --name "mypick-socket" -- run start:prod
 # Update process:
 # git pull
 # git stash - if any changes
-# pm2 restart 3
-# pm2 restart 3 --update-env (If any env update)
+# pm2 restart 4
+# pm2 restart 4 --update-env (If any env update)
+
+# Update process Shortcut:
+git fetch -a
+git reset --hard origin/live
+pnpm i
+pnpm build:com
+pm2 restart 4 --update-env
 ```
 
 **mypick-ai:**
@@ -1260,12 +1350,19 @@ python3.12 -m venv venv
 ./venv/bin/pip install -r requirements.txt
 chmod +x prod-pm2.sh && ./prod-pm2.sh
 
+# Update process:
 git status
 git checkout live
 git fetch origin
 git pull origin live
 ./venv/bin/pip install --upgrade pip
 ./venv/bin/pip install -r requirements.txt
+chmod +x prod-pm2.sh && ./prod-pm2.sh
+pm2 restart 5 --update-env
+
+# Update process Shortcut:
+git fetch -a
+git reset --hard origin/live
 chmod +x prod-pm2.sh && ./prod-pm2.sh
 pm2 restart 5 --update-env
 
@@ -1283,10 +1380,37 @@ pm2 restart 5 --update-env
 # git stash - if any changes
 # pm2 restart 5
 # pm2 restart 5 --update-env (If any env update)
+```
 
+**pickos-admin:**
+```bash
+cd deploy/pickos-admin
+git status
+git checkout live
+git fetch origin
+git pull origin live
+sudo rm -rf node_modules
+pnpm i
+pnpm build:com
+pnpm pm2:start
+pm2 start pnpm --name "pickos-admin" -- start -p 3004
+# or "pnpm run pm2:start"
 
+# Update process:
+# git pull
+# git stash - if any changes
+# pnpm run build (Or)
+# pnpm build:com
+# pm2 status
+# pm2 delete 6 - if needed
+# pm2 restart 6
+# pnpm run pm2:start
+# pm2 restart 6 --update-env (If any env update)
 
-
-
-
+# Update process Shortcut:
+git fetch -a
+git reset --hard origin/live
+pnpm i
+pnpm build:com
+pm2 restart 6 --update-env
 ```
